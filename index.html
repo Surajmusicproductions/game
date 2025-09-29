@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Open World Explorer</title>
+    <style>
+        /* Basic CSS reset and styling for the page */
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background-color: #111;
+            color: white;
+        }
+
+        /* The canvas will be our 3D world, covering the whole screen */
+        #game-canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            cursor: crosshair;
+        }
+
+        /* Overlay for instructions and UI elements */
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            pointer-events: none; /* Allows clicks to go through to the canvas */
+            background: rgba(0,0,0,0.5);
+            transition: opacity 1s ease;
+        }
+        
+        #ui-overlay.hidden {
+            opacity: 0;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        p {
+            font-size: 1.2rem;
+            max-width: 80%;
+        }
+
+        /* Crosshair in the center of the screen */
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.7);
+            transform: translate(-50%, -50%);
+            display: none; /* Hidden until the game starts */
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <canvas id="game-canvas"></canvas>
+
+    <div id="ui-overlay">
+        <h1>3D World Explorer</h1>
+        <p>
+            <b>Click to start</b><br><br>
+            Use <b>W, A, S, D</b> to move.<br>
+            Move your <b>mouse</b> to look around.<br>
+            Press <b>Space</b> to jump and <b>Shift</b> to sprint.
+        </p>
+    </div>
+    
+    <div id="crosshair"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // --- SCENE SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb);
+        scene.fog = new THREE.Fog(0x87ceeb, 0, 350);
+
+        // --- CAMERA SETUP ---
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.y = 10;
+        camera.rotation.order = 'YXZ';
+
+
+        // --- RENDERER SETUP ---
+        const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game-canvas'), antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        
+        // --- TEXTURE LOADING ---
+        const textureLoader = new THREE.TextureLoader();
+        const buildingMaterials = [
+            new THREE.MeshStandardMaterial({ map: textureLoader.load('built1.jpg') }),
+            new THREE.MeshStandardMaterial({ map: textureLoader.load('built2.jpg') }),
+            new THREE.MeshStandardMaterial({ map: textureLoader.load('built3.jpg') }),
+            new THREE.MeshStandardMaterial({ map: textureLoader.load('built4.jpg') })
+        ];
+
+        // --- LIGHTING ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        directionalLight.position.set(100, 100, 50);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        scene.add(directionalLight);
+
+        // --- WORLD GEOMETRY ---
+        const groundGeometry = new THREE.PlaneGeometry(500, 500);
+        const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
+        const obstacles = [];
+        for (let i = 0; i < 100; i++) {
+            // Select a random building material
+            const boxMaterial = buildingMaterials[Math.floor(Math.random() * buildingMaterials.length)];
+            
+            const box = new THREE.Mesh(boxGeometry, boxMaterial);
+            const scaleX = Math.random() * 20 + 5;
+            const scaleY = Math.random() * 40 + 10;
+            const scaleZ = Math.random() * 20 + 5;
+            box.scale.set(scaleX, scaleY, scaleZ);
+            box.position.set((Math.random() - 0.5) * 480, scaleY / 2, (Math.random() - 0.5) * 480);
+            box.castShadow = true;
+            box.receiveShadow = true;
+            scene.add(box);
+            obstacles.push(new THREE.Box3().setFromObject(box));
+        }
+
+        // --- PLAYER CONTROLS & PHYSICS ---
+        const player = {
+            height: 1.8,
+            speed: 5.0,
+            sprintMultiplier: 1.8,
+            jumpHeight: 10.0,
+            velocity: new THREE.Vector3(),
+            onGround: false,
+        };
+        camera.position.y = player.height;
+
+        const controls = {
+            moveForward: false, moveBackward: false,
+            moveLeft: false, moveRight: false,
+            jump: false, sprint: false,
+        };
+
+        document.addEventListener('keydown', (event) => {
+            switch (event.code) {
+                case 'KeyW': controls.moveForward = true; break;
+                case 'KeyS': controls.moveBackward = true; break;
+                case 'KeyA': controls.moveLeft = true; break;
+                case 'KeyD': controls.moveRight = true; break;
+                case 'Space': if(player.onGround) controls.jump = true; break;
+                case 'ShiftLeft': controls.sprint = true; break;
+            }
+        });
+
+        document.addEventListener('keyup', (event) => {
+            switch (event.code) {
+                case 'KeyW': controls.moveForward = false; break;
+                case 'KeyS': controls.moveBackward = false; break;
+                case 'KeyA': controls.moveLeft = false; break;
+                case 'KeyD': controls.moveRight = false; break;
+                case 'ShiftLeft': controls.sprint = false; break;
+            }
+        });
+
+        const uiOverlay = document.getElementById('ui-overlay');
+        const crosshair = document.getElementById('crosshair');
+        document.body.addEventListener('click', () => { document.body.requestPointerLock(); });
+
+        document.addEventListener('pointerlockchange', () => {
+            if (document.pointerLockElement === document.body) {
+                uiOverlay.classList.add('hidden');
+                crosshair.style.display = 'block';
+                document.addEventListener('mousemove', onMouseMove);
+            } else {
+                uiOverlay.classList.remove('hidden');
+                crosshair.style.display = 'none';
+                document.removeEventListener('mousemove', onMouseMove);
+            }
+        });
+
+        const MOUSE_SENSITIVITY = 0.002;
+        // FIXED: Removed the '.' before 'event'
+        function onMouseMove(event) {
+            if (document.pointerLockElement !== document.body) return;
+            
+            camera.rotation.y -= event.movementX * MOUSE_SENSITIVITY;
+            camera.rotation.x -= event.movementY * MOUSE_SENSITIVITY;
+            camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+        }
+
+        const clock = new THREE.Clock();
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            updatePlayer(delta);
+            renderer.render(scene, camera);
+        }
+
+        const gravity = 30.0;
+        const moveDirection = new THREE.Vector3();
+        
+        function updatePlayer(delta) {
+            const actualSpeed = player.speed * (controls.sprint ? player.sprintMultiplier : 1);
+            
+            const forwardInput = (controls.moveForward ? 1 : 0) - (controls.moveBackward ? 1 : 0);
+            // FIXED: Swapped moveLeft and moveRight to fix inverted controls
+            const rightInput = (controls.moveRight ? 1 : 0) - (controls.moveLeft ? 1 : 0);
+
+            const forward = new THREE.Vector3();
+            camera.getWorldDirection(forward);
+            forward.y = 0;
+            forward.normalize();
+            
+            const right = new THREE.Vector3();
+            right.crossVectors(camera.up, forward).normalize().negate(); // Corrected for right-hand rule
+
+            moveDirection.set(0,0,0);
+            moveDirection.add(forward.multiplyScalar(forwardInput));
+            moveDirection.add(right.multiplyScalar(rightInput));
+            moveDirection.normalize();
+
+            player.velocity.x = moveDirection.x * actualSpeed;
+            player.velocity.z = moveDirection.z * actualSpeed;
+
+            if (!player.onGround) player.velocity.y -= gravity * delta;
+
+            if (controls.jump) {
+                player.velocity.y = player.jumpHeight;
+                player.onGround = false;
+                controls.jump = false;
+            }
+            
+            const oldPosition = camera.position.clone();
+            const deltaPosition = player.velocity.clone().multiplyScalar(delta);
+            
+            // Check each axis separately for smoother sliding
+            camera.position.x += deltaPosition.x;
+            if (checkCollision()) { camera.position.x = oldPosition.x; }
+            
+            camera.position.z += deltaPosition.z;
+            if (checkCollision()) { camera.position.z = oldPosition.z; }
+
+            camera.position.y += deltaPosition.y;
+            if (checkCollision()) {
+                camera.position.y = oldPosition.y;
+                player.velocity.y = 0; 
+                if (deltaPosition.y < 0) player.onGround = true;
+            }
+
+            // Ground check
+            if (camera.position.y <= player.height) {
+                camera.position.y = player.height;
+                player.velocity.y = 0;
+                player.onGround = true;
+            }
+        }
+        
+        function checkCollision() {
+            const playerBox = new THREE.Box3().setFromCenterAndSize(
+                camera.position, new THREE.Vector3(1, player.height, 1)
+            );
+            for (const obstacle of obstacles) {
+                if (playerBox.intersectsBox(obstacle)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
