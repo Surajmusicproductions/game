@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forest Runner Challenge</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background-color: #000;
+            color: white;
+        }
+        
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            pointer-events: none;
+            background: rgba(0,0,0,0.7);
+            transition: opacity 0.5s ease;
+            opacity: 1;
+            z-index: 20;
+        }
+        
+        #ui-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        h1 {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.7);
+        }
+        
+        p {
+            font-size: 1.3rem;
+            max-width: 80%;
+        }
+        
+        button {
+            pointer-events: auto;
+            font-size: 1.5rem;
+            padding: 15px 30px;
+            margin-top: 20px;
+            background-color: #A0522D;
+            color: white;
+            border: 2px solid white;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #8B4513;
+        }
+        
+        /* In-Game UI */
+        #game-ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 1.2rem;
+            z-index: 10;
+            display: none;
+        }
+        
+        #game-ui div {
+            margin-bottom: 10px;
+        }
+        
+        .perk {
+            display: inline-block;
+            padding: 5px 10px;
+            margin-right: 10px;
+            background: rgba(0,0,0,0.6);
+            border-radius: 5px;
+            border: 2px solid #666;
+        }
+        
+        .perk.active {
+            border-color: #0f0;
+            background: rgba(0,255,0,0.2);
+        }
+        
+        /* Mobile Controls */
+        #mobile-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 15;
+            pointer-events: none;
+        }
+        
+        .mobile-btn {
+            pointer-events: auto;
+            background: rgba(255,255,255,0.2);
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+            font-weight: bold;
+            user-select: none;
+            touch-action: manipulation;
+        }
+        
+        .mobile-btn:active {
+            background: rgba(255,255,255,0.5);
+        }
+        
+        .mobile-left {
+            justify-self: flex-start;
+        }
+        
+        .mobile-right {
+            justify-self: flex-end;
+        }
+        
+        .mobile-center {
+            display: flex;
+            gap: 20px;
+        }
+        
+        /* FPS Counter */
+        #fps {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-size: 1rem;
+            z-index: 10;
+        }
+        
+        @media (max-width: 768px) {
+            h1 { font-size: 2.5rem; }
+            p { font-size: 1rem; }
+            button { font-size: 1.2rem; padding: 10px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="game-canvas"></canvas>
+    
+    <!-- Main UI Overlay -->
+    <div id="ui-overlay">
+        <h1 id="ui-title">Forest Runner Challenge</h1>
+        <p id="ui-instructions">
+            Use WASD or Arrow Keys to move<br>
+            Space to jump, Shift to crouch<br>
+            Collect power-ups and avoid obstacles!
+        </p>
+        <button id="start-button">START RUNNING</button>
+    </div>
+    
+    <!-- In-Game UI -->
+    <div id="game-ui">
+        <div id="score">Score: 0</div>
+        <div id="high-score">High Score: 0</div>
+        <div>
+            <span class="perk" id="collision-perk">3x</span>
+            <span class="perk" id="slow-perk">Slow</span>
+        </div>
+    </div>
+    
+    <!-- FPS Counter -->
+    <div id="fps">60</div>
+    
+    <!-- Mobile Controls -->
+    <div id="mobile-controls">
+        <div class="mobile-left">
+            <div class="mobile-btn" id="left-btn">←</div>
+        </div>
+        
+        <div class="mobile-center">
+            <div class="mobile-btn" id="jump-btn">↑</div>
+            <div class="mobile-btn" id="crouch-btn">↓</div>
+        </div>
+        
+        <div class="mobile-right">
+            <div class="mobile-btn" id="right-btn">→</div>
+        </div>
+    </div>
+    
+    <script type="module" src="./game.js"></script>
+</body>
+</html>
