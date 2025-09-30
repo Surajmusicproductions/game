@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forest Runner Challenge</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; background-color: #000; color: white; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        #ui-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; pointer-events: none; background: rgba(0,0,0,0.7); transition: opacity 0.5s ease; opacity: 1; z-index: 20; }
+        #ui-overlay.hidden { opacity: 0; pointer-events: none; }
+        h1 { font-size: 4rem; margin-bottom: 1rem; text-shadow: 0 0 15px rgba(255, 255, 255, 0.7); }
+        p { font-size: 1.3rem; max-width: 80%; }
+        button { pointer-events: auto; font-size: 1.5rem; padding: 15px 30px; margin-top: 20px; background-color: #A0522D; color: white; border: 2px solid white; border-radius: 10px; cursor: pointer; transition: background-color 0.3s; }
+        button:hover { background-color: #8B4513; }
+        
+        /* In-Game UI */
+        #game-ui { position: absolute; top: 20px; left: 20px; color: white; font-size: 1.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); z-index: 10;}
+        #high-score { font-size: 1rem; opacity: 0.8; }
+        #fps-ui { position: absolute; top: 20px; right: 20px; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); z-index: 10; }
+
+        /* Mobile Controls */
+        #mobile-controls { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; pointer-events: none; z-index: 10;}
+        .mobile-btn { pointer-events: auto; width: 80px; height: 80px; background-color: rgba(255, 255, 255, 0.2); border: 2px solid white; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 2rem; color: white; user-select: none; touch-action: manipulation; }
+        .control-stack { display: flex; flex-direction: column-reverse; align-items: center; gap: 15px; }
+        
+        #perks-ui { position: absolute; top: 80px; right: 20px; display: flex; flex-direction: column; gap: 10px; pointer-events: none; z-index: 10;}
+        .perk-slot { width: 50px; height: 50px; background-color: rgba(0, 0, 0, 0.5); border: 2px solid white; border-radius: 10px; display: flex; justify-content: center; align-items: center; font-size: 1.5rem; color: white; }
+        .perk-slot.active { background-color: rgba(0, 100, 0, 0.7); box-shadow: 0 0 10px rgba(0, 255, 0, 0.7); }
+        
+        @media (max-width: 768px) {
+            h1 { font-size: 2.5rem; } p { font-size: 1rem; }
+            button { font-size: 1.2rem; padding: 12px 24px; }
+            .mobile-btn { width: 70px; height: 70px; font-size: 1.8rem; }
+            .perk-slot { width: 40px; height: 40px; font-size: 1.2rem; }
+            #game-ui { font-size: 1.2rem; } #high-score { font-size: 0.9rem; }
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <canvas id="game-canvas"></canvas>
+
+    <div id="ui-overlay">
+        <h1 id="ui-title">Forest Runner Challenge</h1>
+        <p id="ui-instructions">Use <b>A / D</b> or <b>Left / Right</b> keys to dodge the obstacles.<br>
+        Press <b>SPACE</b> to jump and <b>SHIFT</b> to crouch.<br>
+        The forest grows more complex the further you run!</p>
+        <button id="start-button">START RUNNING</button>
+    </div>
+
+    <div id="game-ui" style="display: none;">
+        <div id="score">Score: 0</div>
+        <div id="high-score">High Score: 0</div>
+    </div>
+
+    <div id="fps-ui">FPS: <span id="fps">0</span></div>
+    
+    <div id="mobile-controls">
+        <div class="control-stack">
+            <div class="mobile-btn" id="crouch-btn">↓</div>
+            <div class="mobile-btn" id="left-btn">←</div>
+        </div>
+        <div class="control-stack">
+            <div class="mobile-btn" id="jump-btn">↑</div>
+            <div class="mobile-btn" id="right-btn">→</div>
+        </div>
+    </div>
+    
+    <div id="perks-ui">
+        <div class="perk-slot" id="collision-perk">3x</div>
+        <div class="perk-slot" id="slow-perk">⌛</div>
+    </div>
+    
+    <!-- All game logic is now in external JS files -->
+    <script type="module" src="./game.js"></script>
+
+</body>
+</html>
+
