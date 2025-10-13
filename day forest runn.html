@@ -20,7 +20,7 @@
             --accent-yellow: #eab308;
         }
         body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; background-color: var(--primary-bg); color: var(--text-light); touch-action: none; }
-        
+
         #map { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
         #designer-canvas { position: relative; z-index: 2; display: block; width: 100vw; height: 100vh; pointer-events: none; }
         #designer-canvas.interactive, #designer-canvas.placing-objects, #designer-canvas.path-setting { pointer-events: auto; cursor: crosshair; }
@@ -28,7 +28,7 @@
         #control-panel { position: absolute; top: 15px; right: 15px; width: 350px; max-height: calc(100vh - 30px); background: var(--panel-bg); border-radius: 12px; padding: 20px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3); overflow-y: auto; display: flex; flex-direction: column; gap: 15px; backdrop-filter: blur(8px); z-index: 100; transition: transform 0.3s ease-in-out; border: 1px solid rgba(255, 255, 255, 0.1); }
         #control-panel.hidden { transform: translateX(110%); }
         #ui-toggle-btn { position: absolute; top: 15px; right: 15px; width: 50px; height: 50px; background-color: var(--accent-blue); color: white; border: none; border-radius: 50%; font-size: 24px; line-height: 50px; text-align: center; cursor: pointer; z-index: 101; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-        
+
         .section-title { font-size: 1.2rem; font-weight: 700; color: var(--accent-blue); border-bottom: 1px solid var(--control-bg); padding-bottom: 8px; margin-bottom: 5px; }
         .category-toggle { background: rgba(0,0,0,0.2); border-radius: 8px; margin-bottom: 10px; }
         .category-header { padding: 12px 15px; font-weight: bold; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
@@ -60,7 +60,7 @@
 
         #info-panel { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); background: var(--panel-bg); border-radius: 8px; padding: 10px 15px; z-index: 99; transition: opacity 0.3s; font-size: 1.1em; text-align: center; backdrop-filter: blur(5px); }
         #escape-instructions { display: none; z-index: 101; position: absolute; left: 50%; top: 20px; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: white; padding: 10px 20px; border-radius: 8px; font-size: 1rem; backdrop-filter: blur(5px); }
-        
+
         /* Styles for the API key error overlay */
         #api-key-error-overlay {
             position: fixed;
@@ -107,7 +107,7 @@
             font-family: monospace;
             font-size: 1.1em;
         }
-        
+
         @media (max-width: 768px) {
             #control-panel { width: calc(100vw - 30px); top: auto; bottom: 15px; max-height: 50vh; }
             #control-panel.hidden { transform: translateY(110%); }
@@ -117,13 +117,6 @@
     <script type="importmap">
         { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/" } }
     </script>
-    <!-- 
-      FIX 1: A valid Google Maps API Key is required.
-      1. Go to https://console.cloud.google.com/ to generate a key.
-      2. In your project, enable the "Maps JavaScript API" and "Places API".
-      3. Replace the placeholder "YOUR_API_KEY_HERE" below with your actual key.
-    -->
-    <script async src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY_HERE&libraries=drawing&callback=initMap"></script>
 </head>
 <body>
     <!-- This div will display if the API key is missing -->
@@ -134,8 +127,8 @@
             <p><strong>To fix this:</strong></p>
             <ol>
                 <li>Open the <code>synth.html</code> file in an editor.</li>
-                <li>Find the line containing: <code>key=YOUR_API_KEY_HERE</code></li>
-                <li>Replace <code>YOUR_API_KEY_HERE</code> with your actual key from the Google Cloud Console.</li>
+                <li>Find the script block at the bottom of the <code>&lt;body&gt;</code>.</li>
+                <li>Replace <code>'YOUR_API_KEY_HERE'</code> with your actual key from the Google Cloud Console.</li>
             </ol>
             <p>Ensure the "Maps JavaScript API" is enabled for your key.</p>
         </div>
@@ -190,7 +183,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div id="car-controls" style="display:none;">
             <div class="category-toggle open">
                 <div class="category-header">Car Properties</div>
@@ -216,7 +209,7 @@
                  <div class="property-group"><label>Time of Day: <span id="time-value">12</span>:00</label><input type="range" id="time-of-day" min="5" max="21" value="12"></div>
             </div>
         </div>
-        
+
         <div id="manipulation-controls" style="display:none;">
             <div class="section-title" id="manipulation-title">Selected: None</div>
              <div id="editing-controls-container"></div> <!-- Container for dynamic editing controls -->
@@ -232,23 +225,37 @@
             <input type="file" id="import-scene" accept=".json">
         </div>
     </div>
-    
-    <!-- This script runs immediately to check for the placeholder API key -->
+
     <script>
-        const mapsScript = document.querySelector('script[src*="maps.googleapis.com"]');
-        if (mapsScript && mapsScript.src.includes('YOUR_API_KEY_HERE')) {
-            document.getElementById('api-key-error-overlay').style.display = 'flex';
-            // Redefine initMap to prevent it from running and throwing console errors
-            window.initMap = function() {
-                console.error("Google Maps initialization blocked. Please provide a valid API key in synth.html.");
-            };
-        }
-    </script>
+    // --- FIX: DYNAMICALLY LOAD GOOGLE MAPS TO PREVENT InvalidKeyMapError ---
+    // This script now checks for a valid API key BEFORE attempting to load the Google Maps script.
+    // This prevents the console error when the placeholder key is present.
+
+    // 1. Go to https://console.cloud.google.com/ to generate a key.
+    // 2. In your project, enable the "Maps JavaScript API".
+    // 3. Replace the placeholder "YOUR_API_KEY_HERE" below with your actual key.
+    const apiKey = 'AIzaSyC0rqPCJ4H_vWnIIosvX-CdwK-R7D7jx0E';
+
+    if (apiKey === 'YOUR_API_KEY_HERE' || !apiKey) {
+        // If the key is the placeholder, show the error overlay and do not load the script.
+        document.getElementById('api-key-error-overlay').style.display = 'flex';
+        // Define a dummy initMap to prevent "not a function" errors from the main script.
+        window.initMap = function() {
+            console.error("Google Maps initialization blocked. Please provide a valid API key in synth.html.");
+        };
+    } else {
+        // If a key is provided, create and inject the script tag to load Google Maps.
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=drawing&callback=initMap`;
+        script.async = true;
+        document.head.appendChild(script);
+    }
+</script>
 
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        
+
         const canvas = document.getElementById('designer-canvas');
         const scene = new THREE.Scene();
         const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
@@ -257,13 +264,13 @@
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.shadowMap.enabled = true;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        
+
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
         camera.position.set(50, 50, 50);
-        
+
         const orbitControls = new OrbitControls(camera, renderer.domElement);
         orbitControls.enableDamping = true;
-        
+
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
         scene.add(ambientLight);
         const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
@@ -301,9 +308,6 @@
 
         // --- GOOGLE MAPS INTEGRATION ---
         async function initMap() {
-            // FIX 2: Added a try...catch block for robust error handling.
-            // If the Maps API fails to load, the user will now see an error message
-            // instead of a blank screen.
             try {
                 mapCenter = { lat: 18.5204, lng: 73.8567 }; // Pune, India
                 map = new google.maps.Map(document.getElementById("map"), {
@@ -327,22 +331,22 @@
                 polylineOptions: { strokeColor: '#f97316', strokeWeight: 5, clickable: false, editable: false, zIndex: 1 }
             });
             drawingManager.setMap(map);
-            
+
             google.maps.event.addListener(drawingManager, 'overlaycomplete', (event) => {
                 const path = event.overlay.getPath().getArray();
                 const coordinates = path.map(p => ({ lat: p.lat(), lng: p.lng() }));
-                
+
                 if (event.type === 'polygon') {
                     generateBuildingFromFootprint(coordinates);
                 } else if (event.type === 'polyline') {
                     generateRoadFromLine(coordinates);
                 }
                 event.overlay.setMap(null);
-                updateObjectTypeUI('Building'); 
+                updateObjectTypeUI('Building');
             });
             updateObjectTypeUI('Building');
         }
-        
+
         function projectTo3D(lat, lng) {
             const R = 6378137;
             const latRad = mapCenter.lat * Math.PI / 180;
@@ -359,12 +363,12 @@
             const shapePoints = coordinates.map(coord => projectTo3D(coord.lat, coord.lng));
             createObject('Building', { shapePoints, properties: props });
         }
-        
+
         function generateRoadFromLine(coordinates) {
             const roadPoints = coordinates.map(coord => new THREE.Vector3(projectTo3D(coord.lat, coord.lng).x, 0.1, projectTo3D(coord.lat, coord.lng).y));
             createObject('Road', { roadPoints });
         }
-        
+
         // --- OBJECT FACTORY ---
         function createObject(type, options) {
             let object;
@@ -382,7 +386,7 @@
                         map: tex.map,
                         normalMap: tex.normalMap,
                     });
-                    
+
                     const uvAttribute = geometry.attributes.uv;
                     for (let i = 0; i < uvAttribute.count; i++) {
                         const u = uvAttribute.getX(i);
@@ -453,7 +457,7 @@
             }
             return object;
         }
-        
+
         // --- INTERACTION ---
         function onCanvasClick(event) {
             if (isPreviewMode) return;
@@ -462,13 +466,13 @@
             pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
             pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
             raycaster.setFromCamera(pointer, camera);
-            
+
             const intersects = raycaster.intersectObjects(scene.children, true);
-            
+
             let intersectPoint = new THREE.Vector3();
             // Create a virtual ground plane for raycasting, especially for placing objects
             const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-            
+
             if (isSettingPath) {
                 if(raycaster.ray.intersectPlane(groundPlane, intersectPoint)) {
                     pathPoints.push(intersectPoint.clone());
@@ -476,7 +480,7 @@
                 }
                 return;
             }
-            
+
             let clickedObject = null;
             if (intersects.length > 0) {
                  intersectPoint.copy(intersects[0].point);
@@ -488,7 +492,7 @@
                      return; // Can't find a point if we click into the sky
                  }
             }
-            
+
             if (clickedObject) {
                  setSelectedObject(clickedObject);
             } else {
@@ -505,7 +509,7 @@
             }
         }
         canvas.addEventListener('click', onCanvasClick);
-        
+
         function setSelectedObject(object) {
             if (selectedObject) {
                 const box = selectedObject.getObjectByName("SelectionBox");
@@ -514,7 +518,7 @@
             selectedObject = object;
             const controls = document.getElementById('manipulation-controls');
             const pathBtn = document.getElementById('set-path-btn');
-            
+
             if (isSettingPath) togglePathSettingMode();
 
             if (selectedObject) {
@@ -572,14 +576,14 @@
                 });
             });
         }
-        
+
         function updateSelectedObjectProperty(prop, value) {
             if (!selectedObject) return;
-            
+
             const oldObject = selectedObject;
             const index = placedObjects.indexOf(oldObject);
             const oldUserData = JSON.parse(JSON.stringify(oldObject.userData));
-            
+
             oldUserData.properties[prop] = value;
 
             scene.remove(oldObject);
@@ -621,7 +625,7 @@
                 document.getElementById('info-panel').textContent = 'Path set. Select an object or draw a building.';
             }
         }
-        
+
         function updatePathLine() {
             if (pathLine) scene.remove(pathLine);
             if (pathPoints.length < 2) return;
@@ -680,7 +684,7 @@
             });
             renderer.render(scene, camera);
         }
-        
+
         // --- UI & EVENT LISTENERS ---
         function updateObjectTypeUI(type) {
             document.querySelectorAll('.type-button').forEach(btn => btn.classList.toggle('selected', btn.dataset.type === type));
@@ -688,7 +692,7 @@
             const isBuilding = type === 'Building';
             const isRoad = type === 'Road';
             const isPlaceable = !isBuilding && !isRoad;
-            
+
             document.getElementById('building-controls').style.display = isBuilding ? 'block' : 'none';
             document.getElementById('person-controls').style.display = type === 'Person' ? 'block' : 'none';
             document.getElementById('car-controls').style.display = type === 'Car' ? 'block' : 'none';
@@ -705,11 +709,11 @@
             document.getElementById('time-value').textContent = Math.floor(hour);
             const angle = (hour - 6) / 18 * Math.PI;
             directionalLight.position.set(Math.cos(angle) * 800, Math.sin(angle) * 800, 300);
-            if(hour < 7 || hour > 19) { directionalLight.intensity = 0.5; hemisphereLight.intensity = 0.2; } 
+            if(hour < 7 || hour > 19) { directionalLight.intensity = 0.5; hemisphereLight.intensity = 0.2; }
             else { directionalLight.intensity = 1.2; hemisphereLight.intensity = 0.5; }
         });
         document.getElementById('time-of-day').dispatchEvent(new Event('input'));
-        
+
         document.getElementById('delete-btn').addEventListener('click', () => {
              if (selectedObject) {
                 const index = placedObjects.indexOf(selectedObject);
@@ -719,7 +723,7 @@
             }
         });
         document.getElementById('preview-btn').addEventListener('click', enterPreviewMode);
-        
+
         // --- IMPORT/EXPORT LOGIC ---
         document.getElementById('export-btn').addEventListener('click', () => {
             const sceneData = placedObjects.map(obj => {
@@ -732,7 +736,7 @@
                     shapePoints: obj.userData.shapePoints || null
                 };
             });
-            
+
             const jsonString = JSON.stringify(sceneData, null, 2);
             const blob = new Blob([jsonString], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -807,4 +811,3 @@
     </script>
 </body>
 </html>
-
