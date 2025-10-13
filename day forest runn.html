@@ -2,529 +2,809 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Forest Runner Challenge</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>Real World City Builder</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; background-color: #000; color: white; }
-        #game-canvas { display: block; width: 100vw; height: 100vh; }
-        #ui-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; pointer-events: none; background: rgba(0,0,0,0.7); transition: opacity 0.5s ease; opacity: 1; }
-        #ui-overlay.hidden { opacity: 0; pointer-events: none; }
-        h1 { font-size: 4rem; margin-bottom: 1rem; text-shadow: 0 0 15px rgba(255, 255, 255, 0.7); }
-        p { font-size: 1.3rem; max-width: 80%; }
-        button { pointer-events: auto; font-size: 1.5rem; padding: 15px 30px; margin-top: 20px; background-color: #A0522D; color: white; border: 2px solid white; border-radius: 10px; cursor: pointer; transition: background-color 0.3s; }
-        button:hover { background-color: #8B4513; }
+        :root {
+            --primary-bg: #111827;
+            --panel-bg: rgba(31, 41, 55, 0.95);
+            --control-bg: #374151;
+            --control-hover: #4b5563;
+            --text-light: #f3f4f6;
+            --text-muted: #9ca3af;
+            --accent-blue: #3b82f6;
+            --accent-green: #22c55e;
+            --accent-red: #ef4444;
+            --accent-purple: #8b5cf6;
+            --accent-yellow: #eab308;
+        }
+        body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; background-color: var(--primary-bg); color: var(--text-light); touch-action: none; }
+        
+        #map { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+        #designer-canvas { position: relative; z-index: 2; display: block; width: 100vw; height: 100vh; pointer-events: none; }
+        #designer-canvas.interactive, #designer-canvas.placing-objects, #designer-canvas.path-setting { pointer-events: auto; cursor: crosshair; }
 
-        /* In-Game UI for Score */
-        #game-ui {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: white;
-            font-size: 1.5rem;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-        }
-        #high-score {
-            font-size: 1rem;
-            opacity: 0.8;
-        }
+        #control-panel { position: absolute; top: 15px; right: 15px; width: 350px; max-height: calc(100vh - 30px); background: var(--panel-bg); border-radius: 12px; padding: 20px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3); overflow-y: auto; display: flex; flex-direction: column; gap: 15px; backdrop-filter: blur(8px); z-index: 100; transition: transform 0.3s ease-in-out; border: 1px solid rgba(255, 255, 255, 0.1); }
+        #control-panel.hidden { transform: translateX(110%); }
+        #ui-toggle-btn { position: absolute; top: 15px; right: 15px; width: 50px; height: 50px; background-color: var(--accent-blue); color: white; border: none; border-radius: 50%; font-size: 24px; line-height: 50px; text-align: center; cursor: pointer; z-index: 101; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        
+        .section-title { font-size: 1.2rem; font-weight: 700; color: var(--accent-blue); border-bottom: 1px solid var(--control-bg); padding-bottom: 8px; margin-bottom: 5px; }
+        .category-toggle { background: rgba(0,0,0,0.2); border-radius: 8px; margin-bottom: 10px; }
+        .category-header { padding: 12px 15px; font-weight: bold; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .category-header::after { content: '▼'; transition: transform 0.2s; }
+        .category-content { padding: 0 15px 15px 15px; max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out, padding 0.3s ease-out; display: flex; flex-direction: column; gap: 12px; }
+        .category-toggle.open .category-header::after { transform: rotate(180deg); }
+        .category-toggle.open .category-content { max-height: 1000px; }
 
-        /* Mobile Controls */
-        #mobile-controls {
-            position: absolute;
-            bottom: 30px;
-            width: 100%;
-            display: flex;
-            justify-content: space-between;
-            padding: 0 20px;
-            box-sizing: border-box;
-            pointer-events: none;
-        }
-        .mobile-btn {
-            pointer-events: auto;
-            width: 80px;
-            height: 80px;
-            background-color: rgba(255, 255, 255, 0.2);
-            border: 2px solid white;
-            border-radius: 50%;
-            display: flex;
+        .type-button-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .type-button { background-color: var(--control-bg); color: var(--text-light); border: 2px solid transparent; border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s; text-align: center; font-weight: 500; }
+        .type-button:hover { background-color: var(--control-hover); }
+        .type-button.selected { border-color: var(--accent-green); background-color: #16a34a; color: white; font-weight: bold; }
+
+        .property-group { display: flex; flex-direction: column; gap: 8px; }
+        .property-group label { font-weight: bold; font-size: 0.9em; color: var(--text-muted); }
+        input, select { width: 100%; box-sizing: border-box; border-radius: 6px; background: var(--control-bg); border: 1px solid #5a748c; padding: 8px; color: var(--text-light); }
+        input[type="range"] { padding: 0; }
+        .button-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--control-bg); }
+        .action-button, .action-label { padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: background-color 0.2s, transform 0.1s; flex-grow: 1; border: none; color: white; text-align: center; }
+        .action-button:active { transform: scale(0.98); }
+
+        #delete-btn { background-color: var(--accent-red); }
+        #set-path-btn { background-color: var(--accent-yellow); }
+        #set-path-btn.active { background-color: #f59e0b; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
+        #preview-btn { background-color: var(--accent-blue); }
+        #export-btn { background-color: var(--accent-green); }
+        #import-label { background-color: var(--accent-purple); }
+        #import-scene { display: none; }
+
+        #info-panel { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); background: var(--panel-bg); border-radius: 8px; padding: 10px 15px; z-index: 99; transition: opacity 0.3s; font-size: 1.1em; text-align: center; backdrop-filter: blur(5px); }
+        #escape-instructions { display: none; z-index: 101; position: absolute; left: 50%; top: 20px; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: white; padding: 10px 20px; border-radius: 8px; font-size: 1rem; backdrop-filter: blur(5px); }
+        
+        /* Styles for the API key error overlay */
+        #api-key-error-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.85);
+            z-index: 9999;
+            display: none; /* Initially hidden */
             justify-content: center;
             align-items: center;
-            font-size: 2rem;
             color: white;
-            user-select: none;
-            touch-action: manipulation;
+            font-family: 'Inter', sans-serif;
+            backdrop-filter: blur(5px);
         }
-
-        .control-stack { display: flex; flex-direction: column-reverse; align-items: center; gap: 15px; }
-
-        #perks-ui {
-            position: absolute; top: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+        #api-key-error-box {
+            background-color: #ef4444;
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 600px;
+            border: 2px solid #f87171;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        .perk-slot {
-            width: 50px; height: 50px; background-color: rgba(0, 0, 0, 0.5); border: 2px solid white;
-            border-radius: 10px; display: flex; justify-content: center; align-items: center;
-            font-size: 1.5rem; color: white;
+        #api-key-error-box h1 {
+            margin-top: 0;
+            color: white;
+            font-size: 1.5rem;
         }
-        .perk-slot.active { background-color: rgba(0, 100, 0, 0.7); box-shadow: 0 0 10px rgba(0, 255, 0, 0.7); }
-
+        #api-key-error-box p {
+            font-size: 1.1em;
+            line-height: 1.6;
+        }
+        #api-key-error-box ol {
+            text-align: left;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        #api-key-error-box code {
+            background-color: rgba(0,0,0,0.3);
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 1.1em;
+        }
+        
         @media (max-width: 768px) {
-            h1 { font-size: 2.5rem; } p { font-size: 1rem; }
-            button { font-size: 1.2rem; padding: 12px 24px; }
-            .mobile-btn { width: 70px; height: 70px; font-size: 1.8rem; }
-            .perk-slot { width: 40px; height: 40px; font-size: 1.2rem; }
-            #game-ui { font-size: 1.2rem; } #high-score { font-size: 0.9rem; }
+            #control-panel { width: calc(100vw - 30px); top: auto; bottom: 15px; max-height: 50vh; }
+            #control-panel.hidden { transform: translateY(110%); }
+            #ui-toggle-btn { display: block; }
         }
     </style>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <script type="importmap">
+        { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/" } }
+    </script>
+    <!-- 
+      FIX 1: A valid Google Maps API Key is required.
+      1. Go to https://console.cloud.google.com/ to generate a key.
+      2. In your project, enable the "Maps JavaScript API" and "Places API".
+      3. Replace the placeholder "YOUR_API_KEY_HERE" below with your actual key.
+    -->
+    <script async src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY_HERE&libraries=drawing&callback=initMap"></script>
 </head>
 <body>
-    <audio id="background-music" src="background_music.mpeg" loop></audio>
-
-    <canvas id="game-canvas"></canvas>
-
-    <div id="ui-overlay">
-        <h1 id="ui-title">Forest Runner Challenge</h1>
-        <p id="ui-instructions">Use <b>A / D</b> or <b>Left / Right</b> keys to dodge the obstacles.<br>
-        Press <b>SPACE</b> to jump and <b>SHIFT</b> to crouch.<br>
-        The forest grows more complex the further you run!</p>
-        <button id="start-button">START RUNNING</button>
-    </div>
-
-    <div id="game-ui" style="display: none;">
-        <div id="score">Score: 0</div>
-        <div id="high-score">High Score: 0</div>
-    </div>
-
-    <div id="mobile-controls">
-        <div class="control-stack">
-            <div class="mobile-btn" id="crouch-btn">↓</div>
-            <div class="mobile-btn" id="left-btn">←</div>
-        </div>
-        <div class="control-stack">
-            <div class="mobile-btn" id="jump-btn">↑</div>
-            <div class="mobile-btn" id="right-btn">→</div>
+    <!-- This div will display if the API key is missing -->
+    <div id="api-key-error-overlay">
+        <div id="api-key-error-box">
+            <h1>CRITICAL ERROR: Google Maps API Key Missing</h1>
+            <p>This application cannot function without a valid Google Maps API key.</p>
+            <p><strong>To fix this:</strong></p>
+            <ol>
+                <li>Open the <code>synth.html</code> file in an editor.</li>
+                <li>Find the line containing: <code>key=YOUR_API_KEY_HERE</code></li>
+                <li>Replace <code>YOUR_API_KEY_HERE</code> with your actual key from the Google Cloud Console.</li>
+            </ol>
+            <p>Ensure the "Maps JavaScript API" is enabled for your key.</p>
         </div>
     </div>
 
-    <div id="perks-ui">
-        <div class="perk-slot" id="collision-perk">3x</div>
-        <div class="perk-slot" id="slow-perk">⌛</div>
-    </div>
+    <div id="map"></div>
+    <canvas id="designer-canvas"></canvas>
 
-    <script type="importmap">
-        { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js" } }
+    <div id="escape-instructions">Press ESC to Exit | WASDQE to Move | Look with Mouse</div>
+    <div id="info-panel">Use map tools to draw a building, or select another object to place it.</div>
+    <button id="ui-toggle-btn">☰</button>
+
+    <div id="control-panel">
+        <div class="section-title">Real World Builder</div>
+
+        <div class="category-toggle open">
+            <div class="category-header">Object Type</div>
+            <div class="category-content">
+                <div class="type-button-grid">
+                    <button class="type-button selected" data-type="Building">Building</button>
+                    <button class="type-button" data-type="Road">Road</button>
+                    <button class="type-button" data-type="Person">Person</button>
+                    <button class="type-button" data-type="Car">Car</button>
+                    <button class="type-button" data-type="Prop">Prop</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="building-controls">
+            <div class="category-toggle open">
+                <div class="category-header">Building Properties</div>
+                <div class="category-content">
+                    <div class="property-group"><label>Height: <span id="height-value">30</span>m</label><input type="range" id="building-height" min="3" max="200" value="30"></div>
+                    <div class="property-group">
+                        <label for="facade-material">Facade Material</label>
+                        <select id="facade-material">
+                            <option value="brick">Red Brick</option>
+                            <option value="concrete">Modern Concrete</option>
+                            <option value="stucco">Tan Stucco</option>
+                            <option value="glass">Glass Curtain Wall</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="person-controls" style="display:none;">
+            <div class="category-toggle open">
+                <div class="category-header">Person Properties</div>
+                <div class="category-content">
+                     <div class="property-group"><label for="person-profession">Profession</label><select id="person-profession"><option value="Civilian">Civilian</option><option value="Doctor">Doctor</option></select></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="car-controls" style="display:none;">
+            <div class="category-toggle open">
+                <div class="category-header">Car Properties</div>
+                <div class="category-content">
+                    <div class="property-group"><label for="car-type">Type</label><select id="car-type"><option value="Sedan">Sedan</option><option value="SUV">SUV</option></select></div>
+                    <div class="property-group"><label for="car-color">Color</label><input type="color" id="car-color" value="#a81c1c"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="prop-controls" style="display:none;">
+             <div class="category-toggle open">
+                <div class="category-header">Prop Properties</div>
+                <div class="category-content">
+                    <div class="property-group"><label for="prop-type">Type</label><select id="prop-type"><option value="Tree">Tree</option><option value="Streetlamp">Streetlamp</option></select></div>
+                </div>
+             </div>
+        </div>
+
+        <div class="category-toggle">
+            <div class="category-header">Environment</div>
+            <div class="category-content">
+                 <div class="property-group"><label>Time of Day: <span id="time-value">12</span>:00</label><input type="range" id="time-of-day" min="5" max="21" value="12"></div>
+            </div>
+        </div>
+        
+        <div id="manipulation-controls" style="display:none;">
+            <div class="section-title" id="manipulation-title">Selected: None</div>
+             <div id="editing-controls-container"></div> <!-- Container for dynamic editing controls -->
+            <div class="button-group">
+                <button class="action-button" id="delete-btn">Delete</button>
+                <button class="action-button" id="set-path-btn">Set Path</button>
+            </div>
+        </div>
+        <div class="button-group">
+            <button class="action-button" id="preview-btn">Roam Scene</button>
+            <button class="action-button" id="export-btn">Export</button>
+            <label for="import-scene" class="action-label" id="import-label">Import</label>
+            <input type="file" id="import-scene" accept=".json">
+        </div>
+    </div>
+    
+    <!-- This script runs immediately to check for the placeholder API key -->
+    <script>
+        const mapsScript = document.querySelector('script[src*="maps.googleapis.com"]');
+        if (mapsScript && mapsScript.src.includes('YOUR_API_KEY_HERE')) {
+            document.getElementById('api-key-error-overlay').style.display = 'flex';
+            // Redefine initMap to prevent it from running and throwing console errors
+            window.initMap = function() {
+                console.error("Google Maps initialization blocked. Please provide a valid API key in synth.html.");
+            };
+        }
     </script>
 
     <script type="module">
         import * as THREE from 'three';
-
-        // --- GAME STATE & CONFIG ---
-        let gameRunning = false;
-        const START_SPEED = 28.0;
-        const ACCELERATION = 0.1;
-        const LATERAL_SPEED = 22.0;
-        let obstacleDensity = 1.0;
-
-        let isJumping = false, isCrouching = false, jumpVelocity = 0;
-        const JUMP_FORCE = 15, GRAVITY = -50, NORMAL_HEIGHT = 5, CROUCH_HEIGHT = 2.5;
-
-        let collisionSkipCount = 0, slowTimeActive = false, slowTimeEndTime = 0;
-
-        // COLLISION FIX: Add invincibility state
-        let isInvincible = false;
-        let invincibilityEndTime = 0;
-
-        let score = 0, highScore = localStorage.getItem('forestRunnerHighScore') || 0, difficultyLevel = 0;
-
-        // --- SCENE SETUP ---
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        
+        const canvas = document.getElementById('designer-canvas');
         const scene = new THREE.Scene();
-        const eveningColor = 0xFFA07A;
-        scene.fog = new THREE.Fog(eveningColor, 75, 250);
-        scene.background = new THREE.Color(eveningColor);
-
-        const textureLoader = new THREE.TextureLoader();
-        textureLoader.load('https://s3-us-west-2.amazonaws.com/s.cdpn.io/17271/sky14.jpg', function(texture) {
-            scene.add(new THREE.Mesh(new THREE.SphereGeometry(800, 32, 20), new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide, fog: false })));
-        });
-
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, NORMAL_HEIGHT, -10);
-        camera.lookAt(0, NORMAL_HEIGHT, 0);
-
-        const sun = new THREE.Mesh(new THREE.SphereGeometry(20, 32, 32), new THREE.MeshBasicMaterial({ color: 0xFFD700, fog: false }));
-        sun.position.set(-200, 100, 400);
-        scene.add(sun);
-
-        const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game-canvas'), antialias: false });
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+        renderer.setClearColor(0x000000, 0);
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+        renderer.setPixelRatio(window.devicePixelRatio);
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
+        camera.position.set(50, 50, 50);
+        
+        const orbitControls = new OrbitControls(camera, renderer.domElement);
+        orbitControls.enableDamping = true;
+        
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.set(4096, 4096);
+        directionalLight.shadow.camera.far = 2000;
+        directionalLight.shadow.camera.left = -1000;
+        directionalLight.shadow.camera.right = 1000;
+        directionalLight.shadow.camera.top = 1000;
+        directionalLight.shadow.camera.bottom = -1000;
+        scene.add(directionalLight);
+        const hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x558f55, 0.5);
+        scene.add(hemisphereLight);
 
-        scene.add(new THREE.AmbientLight(0xFFF8E7, 0.8));
-        const mainLight = new THREE.DirectionalLight(0xFFE4B5, 1.8);
-        mainLight.position.set(-150, 80, 100);
-        mainLight.castShadow = true;
-        mainLight.shadow.mapSize.width = 1024; mainLight.shadow.mapSize.height = 1024;
-        mainLight.shadow.camera.near = 0.5; mainLight.shadow.camera.far = 500;
-        mainLight.shadow.camera.left = -100; mainLight.shadow.camera.right = 100;
-        mainLight.shadow.camera.top = 100; mainLight.shadow.camera.bottom = -100;
-        scene.add(mainLight);
+        let placedObjects = [], selectedObject = null, isPreviewMode = false;
+        let map, mapCenter, drawingManager;
+        let currentObjectType = 'Building';
+        let isSettingPath = false, pathObject = null, pathPoints = [], pathLine = null;
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
 
-        const player = { speed: START_SPEED, height: 1.8, hitbox: new THREE.Box3() };
-
-        // --- WORLD GENERATION ---
-        const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x556B2F, roughness: 0.9, metalness: 0.1 });
-        const worldChunks = new Map();
-        const CHUNK_SIZE = 50;
-        const RENDER_DISTANCE = 3;
-
-        function createWorldChunk(chunkX, chunkZ) {
-            const chunkId = `${chunkX},${chunkZ}`;
-            if (worldChunks.has(chunkId)) return;
-
-            const chunkGroup = new THREE.Group();
-            chunkGroup.userData = { obstacles: [], perks: [] };
-
-            const ground = new THREE.Mesh(new THREE.PlaneGeometry(CHUNK_SIZE, CHUNK_SIZE), groundMaterial);
-            ground.rotation.x = -Math.PI / 2;
-            ground.receiveShadow = true;
-            chunkGroup.add(ground);
-
-            addGroundDetails(chunkGroup);
-
-            // COMPLEXITY CHANGE: Generate more complex patterns based on difficulty
-            const obstacleCount = 1 + Math.floor(difficultyLevel / 2);
-            for(let i = 0; i < obstacleCount; i++) {
-                const x = Math.random() * CHUNK_SIZE - CHUNK_SIZE / 2;
-                const z = Math.random() * CHUNK_SIZE - CHUNK_SIZE / 2;
-
-                if (difficultyLevel < 2) { // Easy start
-                    const tree = createRandomTree(x, z);
-                    chunkGroup.add(tree);
-                    chunkGroup.userData.obstacles.push(tree.children[0]);
-                } else { // Increased complexity
-                    const pattern = Math.random();
-                    if (pattern < 0.35) { // Corridor
-                        const tree1 = createRandomTree(x - 4, z);
-                        const tree2 = createRandomTree(x + 4, z);
-                        chunkGroup.add(tree1, tree2);
-                        chunkGroup.userData.obstacles.push(tree1.children[0], tree2.children[0]);
-                    } else if (pattern < 0.6) { // Forced jump
-                        const log = createJumpingObstacle(x, z);
-                        chunkGroup.add(log);
-                        chunkGroup.userData.obstacles.push(log);
-                    } else if (pattern < 0.8 && difficultyLevel >= 4) { // Compound Obstacle
-                         const log = createJumpingObstacle(x, z);
-                         const tree = createRandomTree(x + (Math.random() > 0.5 ? 3 : -3), z + 5);
-                         chunkGroup.add(log, tree);
-                         chunkGroup.userData.obstacles.push(log, tree.children[0]);
-                    }
-                    else { // Random complex tree
-                        const tree = createRandomTree(x, z, true); // Pass true to make it complex
-                        chunkGroup.add(tree);
-                        chunkGroup.userData.obstacles.push(tree.children[0]);
-                         if (tree.children.length > 2) { // If it has extra branches
-                            chunkGroup.userData.obstacles.push(tree.children[2]);
-                        }
-                    }
-                }
-            }
-
-            if (Math.random() < 0.1) {
-                const perk = createPerk(Math.random() > 0.5 ? 'collision' : 'slow', Math.random() * CHUNK_SIZE - CHUNK_SIZE / 2, Math.random() * CHUNK_SIZE - CHUNK_SIZE / 2);
-                chunkGroup.add(perk);
-                chunkGroup.userData.perks.push(perk);
-            }
-
-            const foliageCount = Math.floor((Math.random() * 4 + 2) * obstacleDensity);
-            for (let i = 0; i < foliageCount; i++) {
-                const foliage = createBush();
-                foliage.position.set(Math.random() * CHUNK_SIZE - CHUNK_SIZE / 2, foliage.position.y, Math.random() * CHUNK_SIZE - CHUNK_SIZE / 2);
-                chunkGroup.add(foliage);
-            }
-
-            chunkGroup.position.set(chunkX * CHUNK_SIZE, 0, chunkZ * CHUNK_SIZE);
-            scene.add(chunkGroup);
-            worldChunks.set(chunkId, chunkGroup);
-        }
-
-        function addGroundDetails(chunkGroup) {
-             const detailCount = Math.floor(Math.random() * 5) + 3;
-            for (let i = 0; i < detailCount; i++) {
-                const detail = createSmallRock();
-                detail.position.set( Math.random() * CHUNK_SIZE - CHUNK_SIZE / 2, detail.position.y, Math.random() * CHUNK_SIZE - CHUNK_SIZE / 2);
-                chunkGroup.add(detail);
-            }
-        }
-
-        // --- ASSET CREATION ---
-        const treeMaterials = {
-            standard: { trunk: new THREE.MeshStandardMaterial({ color: 0x8B4513 }), leaves: new THREE.MeshStandardMaterial({ color: 0x228B22 }) },
-            autumn: { trunk: new THREE.MeshStandardMaterial({ color: 0x6e472d }), leaves: new THREE.MeshStandardMaterial({ color: 0xCD5C5C }) },
-            birch: { trunk: new THREE.MeshStandardMaterial({ color: 0xF5F5DC }), leaves: new THREE.MeshStandardMaterial({ color: 0x9ACD32 }) }
+        // NOTE: For production, consider hosting these textures locally with your project
+        // to avoid reliance on an external CDN.
+        const textureLoader = new THREE.TextureLoader();
+        const textures = {
+            brick: { map: textureLoader.load('https://cdn.jsdelivr.net/gh/Sean-Bradley/Brose-Models/textures/brick_wall_001_1k/textures/brick_wall_001_diffuse_1k.jpg'), normalMap: textureLoader.load('https://cdn.jsdelivr.net/gh/Sean-Bradley/Brose-Models/textures/brick_wall_001_1k/textures/brick_wall_001_nor_gl_1k.jpg') },
+            concrete: { map: textureLoader.load('https://cdn.jsdelivr.net/gh/Sean-Bradley/Brose-Models/textures/concrete_wall_001_1k/textures/concrete_wall_001_diff_1k.jpg'), normalMap: textureLoader.load('https://cdn.jsdelivr.net/gh/Sean-Bradley/Brose-Models/textures/concrete_wall_001_1k/textures/concrete_wall_001_nor_gl_1k.jpg') },
+            stucco: { map: textureLoader.load('https://cdn.jsdelivr.net/gh/Sean-Bradley/Brose-Models/textures/plaster_001_1k/textures/plaster_001_diff_1k.jpg'), normalMap: textureLoader.load('https://cdn.jsdelivr.net/gh/Sean-Bradley/Brose-Models/textures/plaster_001_1k/textures/plaster_001_nor_gl_1k.jpg') },
+            glass: { map: textureLoader.load('https://cdn.jsdelivr.net/gh/Sean-Bradley/Brose-Models/textures/glass_001_1k/textures/glass_001_diff_1k.jpg'), metalness: 1.0, roughness: 0.1, transparent: true, opacity: 0.2 },
+            roofing: { map: textureLoader.load('https://cdn.jsdelivr.net/gh/Sean-Bradley/Brose-Models/textures/roof_001_1k/textures/roof_001_diff_1k.jpg') }
         };
-        const stoneMaterial = new THREE.MeshStandardMaterial({ color: 0x696969, roughness: 0.8 });
-        const bushMaterial = new THREE.MeshStandardMaterial({ color: 0x6B8E23 });
+        Object.values(textures).forEach(texGroup => {
+            for (const key in texGroup) { if (texGroup[key] instanceof THREE.Texture) { texGroup[key].wrapS = texGroup[key].wrapT = THREE.RepeatWrapping; } }
+        });
 
-        function createSmallRock() {
-            const rockSize = Math.random() * 0.5 + 0.2;
-            const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(rockSize, 0), stoneMaterial);
-            rock.position.y = rockSize / 2;
-            return rock;
+        // --- GOOGLE MAPS INTEGRATION ---
+        async function initMap() {
+            // FIX 2: Added a try...catch block for robust error handling.
+            // If the Maps API fails to load, the user will now see an error message
+            // instead of a blank screen.
+            try {
+                mapCenter = { lat: 18.5204, lng: 73.8567 }; // Pune, India
+                map = new google.maps.Map(document.getElementById("map"), {
+                    center: mapCenter, zoom: 18, mapTypeId: 'satellite', disableDefaultUI: true, tilt: 0
+                });
+                setupDrawingManager();
+            } catch (error) {
+                console.error("Error loading Google Maps:", error);
+                document.getElementById('info-panel').textContent = "Error: Could not load Google Maps. Please check your API key and internet connection.";
+                document.getElementById('map').style.backgroundColor = '#333'; // Make map div visible
+            }
         }
-        function createBush() {
-            const bushSize = Math.random() * 1.5 + 0.5;
-            const bush = new THREE.Mesh(new THREE.IcosahedronGeometry(bushSize, 0), bushMaterial);
-            bush.position.y = bushSize / 2;
-            bush.castShadow = true;
-            return bush;
+        window.initMap = initMap;
+
+        async function setupDrawingManager() {
+            const { DrawingManager } = await google.maps.importLibrary("drawing");
+            drawingManager = new DrawingManager({
+                drawingControl: true,
+                drawingControlOptions: { position: google.maps.ControlPosition.TOP_CENTER, drawingModes: ['polygon', 'polyline'] },
+                polygonOptions: { fillColor: '#3b82f6', fillOpacity: 0.3, strokeWeight: 2, strokeColor: '#FFFFFF', clickable: false, editable: false, zIndex: 1, },
+                polylineOptions: { strokeColor: '#f97316', strokeWeight: 5, clickable: false, editable: false, zIndex: 1 }
+            });
+            drawingManager.setMap(map);
+            
+            google.maps.event.addListener(drawingManager, 'overlaycomplete', (event) => {
+                const path = event.overlay.getPath().getArray();
+                const coordinates = path.map(p => ({ lat: p.lat(), lng: p.lng() }));
+                
+                if (event.type === 'polygon') {
+                    generateBuildingFromFootprint(coordinates);
+                } else if (event.type === 'polyline') {
+                    generateRoadFromLine(coordinates);
+                }
+                event.overlay.setMap(null);
+                updateObjectTypeUI('Building'); 
+            });
+            updateObjectTypeUI('Building');
+        }
+        
+        function projectTo3D(lat, lng) {
+            const R = 6378137;
+            const latRad = mapCenter.lat * Math.PI / 180;
+            const x = R * (lng - mapCenter.lng) * Math.PI / 180 * Math.cos(latRad);
+            const z = -R * (lat - mapCenter.lat) * Math.PI / 180;
+            return new THREE.Vector2(x, z);
         }
 
-        function createRandomTree(x, z, isComplex = false) {
-            const tree = new THREE.Group();
-            const type = Math.random();
-            let materials;
-            if (type < 0.6) materials = treeMaterials.standard;
-            else if (type < 0.85) materials = treeMaterials.autumn;
-            else materials = treeMaterials.birch;
+        function generateBuildingFromFootprint(coordinates) {
+            const props = {
+                height: parseFloat(document.getElementById('building-height').value),
+                facadeMaterial: document.getElementById('facade-material').value,
+            };
+            const shapePoints = coordinates.map(coord => projectTo3D(coord.lat, coord.lng));
+            createObject('Building', { shapePoints, properties: props });
+        }
+        
+        function generateRoadFromLine(coordinates) {
+            const roadPoints = coordinates.map(coord => new THREE.Vector3(projectTo3D(coord.lat, coord.lng).x, 0.1, projectTo3D(coord.lat, coord.lng).y));
+            createObject('Road', { roadPoints });
+        }
+        
+        // --- OBJECT FACTORY ---
+        function createObject(type, options) {
+            let object;
+            const props = options.properties || {};
 
-            const height = Math.random() * 8 + 10;
-            const trunkRadius = (isComplex ? 1.5 : 1) * (Math.random() * 0.3 + 0.4);
-            const trunkGeo = new THREE.CylinderGeometry(trunkRadius * 0.7, trunkRadius, height, 6);
-            const trunk = new THREE.Mesh(trunkGeo, materials.trunk);
-            trunk.position.y = height / 2;
+            switch (type) {
+                case 'Building':
+                    const shape = new THREE.Shape(options.shapePoints);
+                    const extrudeSettings = { depth: props.height, bevelEnabled: false };
+                    const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+                    geometry.computeBoundingBox();
 
-            const leafGeo = new THREE.IcosahedronGeometry(Math.random() * 2 + (isComplex ? 4 : 3), 0);
-            const leaves = new THREE.Mesh(leafGeo, materials.leaves);
-            leaves.position.y = height;
+                    const tex = textures[props.facadeMaterial] || textures.brick;
+                    const facadeMaterial = new THREE.MeshStandardMaterial({
+                        map: tex.map,
+                        normalMap: tex.normalMap,
+                    });
+                    
+                    const uvAttribute = geometry.attributes.uv;
+                    for (let i = 0; i < uvAttribute.count; i++) {
+                        const u = uvAttribute.getX(i);
+                        const v = uvAttribute.getY(i);
+                        uvAttribute.setXY(i, u * 2, v * (props.height / 5));
+                    }
+                    uvAttribute.needsUpdate = true;
 
-            trunk.castShadow = true;
-            leaves.castShadow = true;
-            tree.add(trunk, leaves);
+                    const roofMaterial = new THREE.MeshStandardMaterial({ map: textures.roofing.map });
+                    object = new THREE.Mesh(geometry, [facadeMaterial, roofMaterial]);
+                    object.position.y = 0; // Buildings start from the ground up
+                    object.castShadow = true;
+                    object.receiveShadow = true;
+                    break;
 
-            if (isComplex && Math.random() > 0.5) {
-                const branchGeo = new THREE.CylinderGeometry(0.2, 0.3, 5, 5);
-                const branch = new THREE.Mesh(branchGeo, materials.trunk);
-                branch.position.set(trunkRadius, height * 0.6, 0);
-                branch.rotation.z = Math.PI / 4;
-                branch.castShadow = true;
-                tree.add(branch);
-                branch.userData = { isObstacle: true, hitbox: new THREE.Box3().setFromObject(branch) };
+                case 'Road':
+                    const roadGeometry = new THREE.BufferGeometry().setFromPoints(options.roadPoints);
+                    const roadMaterial = new THREE.LineBasicMaterial({ color: 0x444444, linewidth: 10 });
+                    object = new THREE.Line(roadGeometry, roadMaterial);
+                    break;
+
+                case 'Person':
+                    const personGeo = new THREE.CapsuleGeometry(0.25, 1.25, 4, 8);
+                    const personMat = new THREE.MeshStandardMaterial({ color: 0x0077ff });
+                    object = new THREE.Mesh(personGeo, personMat);
+                    object.position.y = 1.8 / 2;
+                    object.castShadow = true;
+                    break;
+
+                case 'Car':
+                    const carGeo = new THREE.BoxGeometry(2, 1.2, 4.5);
+                    const carMat = new THREE.MeshStandardMaterial({ color: props.color || '#a81c1c' });
+                    object = new THREE.Mesh(carGeo, carMat);
+                    object.position.y = 1.2 / 2;
+                    object.castShadow = true;
+                    break;
+
+                case 'Prop':
+                    if (props.type === 'Tree') {
+                        const trunkGeo = new THREE.CylinderGeometry(0.2, 0.3, 3, 8);
+                        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x654321 });
+                        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+
+                        const leavesGeo = new THREE.SphereGeometry(2, 8, 6);
+                        const leavesMat = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+                        const leaves = new THREE.Mesh(leavesGeo, leavesMat);
+                        leaves.position.y = 3;
+                        object = new THREE.Group();
+                        object.add(trunk);
+                        object.add(leaves);
+                        object.position.y = 3 / 2;
+                    } else { // Streetlamp
+                        const poleGeo = new THREE.CylinderGeometry(0.1, 0.1, 5, 8);
+                        const poleMat = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.8, roughness: 0.3 });
+                        object = new THREE.Mesh(poleGeo, poleMat);
+                        object.position.y = 5 / 2;
+                    }
+                    object.castShadow = true;
+                    break;
             }
 
-            trunk.userData = { isObstacle: true, hitbox: new THREE.Box3().setFromObject(trunk) };
-            tree.position.set(x, 0, z);
-            return tree;
+            if (object) {
+                object.userData = { type, properties: props };
+                if (options.position) object.position.copy(options.position);
+                if (options.shapePoints) object.userData.shapePoints = options.shapePoints; // Store shape for editing
+                scene.add(object);
+                placedObjects.push(object);
+            }
+            return object;
         }
+        
+        // --- INTERACTION ---
+        function onCanvasClick(event) {
+            if (isPreviewMode) return;
 
-        function createJumpingObstacle(x, z) {
-            const log = new THREE.Mesh( new THREE.CylinderGeometry(0.5, 0.5, 4, 6).rotateZ(Math.PI / 2), treeMaterials.standard.trunk);
-            log.castShadow = true;
-            log.userData = { isObstacle: true, requiresJump: true, hitbox: new THREE.Box3().setFromObject(log) };
-            log.position.set(x, 0.5, z);
-            return log;
-        }
-
-        function createCrouchingObstacle(x, z) {
-            const branch = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 6, 6).rotateX(Math.PI / 2), treeMaterials.standard.trunk);
-            branch.castShadow = true;
-            branch.userData = { isObstacle: true, requiresCrouch: true, hitbox: new THREE.Box3().setFromObject(branch) };
-            branch.position.set(x, 2.5, z);
-            return branch;
-        }
-
-        function createPerk(type, x, z) {
-            let geo, mat;
-            if (type === 'collision') { geo = new THREE.OctahedronGeometry(1); mat = new THREE.MeshStandardMaterial({ color: 0x00ff00 }); }
-            else { geo = new THREE.TorusGeometry(0.8, 0.3, 8, 12); mat = new THREE.MeshStandardMaterial({ color: 0x4444ff }); }
-            const perk = new THREE.Mesh(geo, mat);
-            perk.userData = { isPerk: true, perkType: type, hitbox: new THREE.Box3().setFromObject(perk) };
-            perk.position.set(x, 1.5, z);
-            return perk;
-        }
-
-        // --- CONTROLS ---
-        // FIXED: Restored the controls object and event listeners
-        const controls = { moveLeft: false, moveRight: false, jump: false, crouch: false };
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'a' || e.key === 'ArrowLeft') controls.moveLeft = true;
-            if (e.key === 'd' || e.key === 'ArrowRight') controls.moveRight = true;
-            if (e.key === ' ' && !isJumping && !isCrouching) { isJumping = true; jumpVelocity = JUMP_FORCE; }
-            if (e.key === 'Shift' && !isJumping) { isCrouching = true; camera.position.y = CROUCH_HEIGHT; }
-        });
-        document.addEventListener('keyup', (e) => {
-            if (e.key === 'a' || e.key === 'ArrowLeft') controls.moveLeft = false;
-            if (e.key === 'd' || e.key === 'ArrowRight') controls.moveRight = false;
-            if (e.key === 'Shift') { isCrouching = false; if (!isJumping) camera.position.y = NORMAL_HEIGHT; }
-        });
-        const leftBtn = document.getElementById('left-btn'); const rightBtn = document.getElementById('right-btn');
-        const jumpBtn = document.getElementById('jump-btn'); const crouchBtn = document.getElementById('crouch-btn');
-        leftBtn.addEventListener('touchstart', (e) => { e.preventDefault(); controls.moveLeft = true; });
-        leftBtn.addEventListener('touchend', (e) => { e.preventDefault(); controls.moveLeft = false; });
-        rightBtn.addEventListener('touchstart', (e) => { e.preventDefault(); controls.moveRight = true; });
-        rightBtn.addEventListener('touchend', (e) => { e.preventDefault(); controls.moveRight = false; });
-        jumpBtn.addEventListener('touchstart', (e) => { e.preventDefault(); if (!isJumping && !isCrouching) { isJumping = true; jumpVelocity = JUMP_FORCE; } });
-        crouchBtn.addEventListener('touchstart', (e) => { e.preventDefault(); if (!isJumping) { isCrouching = true; camera.position.y = CROUCH_HEIGHT; } });
-        crouchBtn.addEventListener('touchend', (e) => { e.preventDefault(); isCrouching = false; if(!isJumping) camera.position.y = NORMAL_HEIGHT; });
-
-        // --- UI & GAME STATE ---
-        const uiOverlay = document.getElementById('ui-overlay'), uiTitle = document.getElementById('ui-title'),
-              uiInstructions = document.getElementById('ui-instructions'), startButton = document.getElementById('start-button'),
-              gameUI = document.getElementById('game-ui'), scoreUI = document.getElementById('score'),
-              highScoreUI = document.getElementById('high-score'), collisionPerkUI = document.getElementById('collision-perk'),
-              slowPerkUI = document.getElementById('slow-perk');
-
-        startButton.addEventListener('click', () => { gameRunning = true; uiOverlay.classList.add('hidden'); gameUI.style.display = 'block'; resetGame(); });
-
-        function gameOver() {
-            gameRunning = false;
-            uiTitle.innerText = "Game Over";
-            uiInstructions.innerHTML = `You ran ${score} meters!<br>High Score: ${highScore}`;
-            startButton.innerText = "RUN AGAIN";
-            uiOverlay.classList.remove('hidden');
-            gameUI.style.display = 'none';
-        }
-        function resetGame() {
-            camera.position.set(0, NORMAL_HEIGHT, -10); player.speed = START_SPEED;
-            obstacleDensity = 1.0; isJumping = false; isCrouching = false;
-            jumpVelocity = 0; collisionSkipCount = 0; slowTimeActive = false;
-            isInvincible = false; score = 0; difficultyLevel = 0;
-            updatePerkUI();
-            highScoreUI.innerText = `High Score: ${highScore}`;
-            worldChunks.forEach(chunk => scene.remove(chunk)); worldChunks.clear();
-        }
-        function updatePerkUI() {
-            collisionPerkUI.classList.toggle('active', collisionSkipCount > 0);
-            collisionPerkUI.innerText = collisionSkipCount > 0 ? `${collisionSkipCount}x` : '3x';
-            slowPerkUI.classList.toggle('active', slowTimeActive);
-        }
-
-        // --- GAME LOOP ---
-        const clock = new THREE.Clock();
-        const tempHitbox = new THREE.Box3();
-
-        function animate() {
-            requestAnimationFrame(animate);
-            if (!gameRunning) return;
-
-            const delta = clock.getDelta();
-            const currentTime = clock.getElapsedTime();
-
-            score = Math.floor(camera.position.z);
-            if (score > highScore) { highScore = score; localStorage.setItem('forestRunnerHighScore', highScore); }
-            scoreUI.innerText = `Score: ${score}`; highScoreUI.innerText = `High Score: ${highScore}`;
-            difficultyLevel = Math.floor(score / 400);
-
-            if (isInvincible && currentTime > invincibilityEndTime) { isInvincible = false; }
-
-            let speedMultiplier = 1.0;
-            if (slowTimeActive && currentTime < slowTimeEndTime) { speedMultiplier = 0.5; }
-            else if (slowTimeActive) { slowTimeActive = false; updatePerkUI(); }
-
-            camera.position.z += player.speed * delta * speedMultiplier;
-
-            // FIXED: Restored jumping logic
-            if (isJumping) {
-                camera.position.y += jumpVelocity * delta;
-                jumpVelocity += GRAVITY * delta;
-                if (camera.position.y <= NORMAL_HEIGHT) {
-                    camera.position.y = NORMAL_HEIGHT;
-                    isJumping = false;
+            const rect = canvas.getBoundingClientRect();
+            pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(pointer, camera);
+            
+            const intersects = raycaster.intersectObjects(scene.children, true);
+            
+            let intersectPoint = new THREE.Vector3();
+            // Create a virtual ground plane for raycasting, especially for placing objects
+            const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+            
+            if (isSettingPath) {
+                if(raycaster.ray.intersectPlane(groundPlane, intersectPoint)) {
+                    pathPoints.push(intersectPoint.clone());
+                    updatePathLine();
+                }
+                return;
+            }
+            
+            let clickedObject = null;
+            if (intersects.length > 0) {
+                 intersectPoint.copy(intersects[0].point);
+                 let obj = intersects[0].object;
+                 while(obj.parent && !obj.userData.type) { obj = obj.parent; }
+                 if(placedObjects.includes(obj)) clickedObject = obj;
+            } else {
+                 if (!raycaster.ray.intersectPlane(groundPlane, intersectPoint)) {
+                     return; // Can't find a point if we click into the sky
+                 }
+            }
+            
+            if (clickedObject) {
+                 setSelectedObject(clickedObject);
+            } else {
+                setSelectedObject(null);
+                if (currentObjectType !== 'Building' && currentObjectType !== 'Road') {
+                     let props = {};
+                    switch(currentObjectType) {
+                        case 'Person': props = { profession: document.getElementById('person-profession').value }; break;
+                        case 'Car': props = { type: document.getElementById('car-type').value, color: document.getElementById('car-color').value }; break;
+                        case 'Prop': props = { type: document.getElementById('prop-type').value }; break;
+                    }
+                    createObject(currentObjectType, { position: intersectPoint, properties: props });
                 }
             }
+        }
+        canvas.addEventListener('click', onCanvasClick);
+        
+        function setSelectedObject(object) {
+            if (selectedObject) {
+                const box = selectedObject.getObjectByName("SelectionBox");
+                if (box) selectedObject.remove(box);
+            }
+            selectedObject = object;
+            const controls = document.getElementById('manipulation-controls');
+            const pathBtn = document.getElementById('set-path-btn');
+            
+            if (isSettingPath) togglePathSettingMode();
 
-            const lateralVelocity = (controls.moveRight ? 1 : 0) - (controls.moveLeft ? 1 : 0);
-            camera.position.x += lateralVelocity * LATERAL_SPEED * delta * speedMultiplier;
-            camera.position.x = Math.max(-20, Math.min(20, camera.position.x));
+            if (selectedObject) {
+                const boxHelper = new THREE.BoxHelper(selectedObject, 0xffff00);
+                boxHelper.name = "SelectionBox";
+                selectedObject.add(boxHelper);
+                document.getElementById('manipulation-title').textContent = `Selected: ${selectedObject.userData.type}`;
+                controls.style.display = 'block';
+                pathBtn.style.display = (selectedObject.userData.type === 'Person' || selectedObject.userData.type === 'Car') ? 'block' : 'none';
+                populateEditingControls();
+            } else {
+                controls.style.display = 'none';
+                 document.getElementById('editing-controls-container').innerHTML = '';
+            }
+        }
 
-            const camChunkX = Math.floor(camera.position.x / CHUNK_SIZE);
-            const camChunkZ = Math.floor(camera.position.z / CHUNK_SIZE);
+        // --- OBJECT EDITING ---
+        function populateEditingControls() {
+            const container = document.getElementById('editing-controls-container');
+            container.innerHTML = '';
+            if (!selectedObject) return;
 
-            for (let z = -RENDER_DISTANCE; z <= RENDER_DISTANCE; z++) { for (let x = -RENDER_DISTANCE; x <= RENDER_DISTANCE; x++) { createWorldChunk(camChunkX + x, camChunkZ + z); } }
+            const { type, properties } = selectedObject.userData;
 
-            // FIXED: Restored chunk removal logic
-            worldChunks.forEach((chunk, chunkId) => {
-                 const [cx, cz] = chunkId.split(',').map(Number);
-                if (Math.abs(cx - camChunkX) > RENDER_DISTANCE + 1 || Math.abs(cz - camChunkZ) > RENDER_DISTANCE + 1) {
-                    scene.remove(chunk); worldChunks.delete(chunkId);
-                }
+            let controlsHTML = '';
+            if (type === 'Building') {
+                controlsHTML = `
+                    <div class="property-group">
+                        <label>Height</label>
+                        <input type="range" class="edit-prop" data-prop="height" min="3" max="200" value="${properties.height}">
+                    </div>
+                    <div class="property-group">
+                        <label>Facade</label>
+                        <select class="edit-prop" data-prop="facadeMaterial">
+                            <option value="brick" ${properties.facadeMaterial === 'brick' ? 'selected' : ''}>Red Brick</option>
+                            <option value="concrete" ${properties.facadeMaterial === 'concrete' ? 'selected' : ''}>Modern Concrete</option>
+                            <option value="stucco" ${properties.facadeMaterial === 'stucco' ? 'selected' : ''}>Tan Stucco</option>
+                            <option value="glass" ${properties.facadeMaterial === 'glass' ? 'selected' : ''}>Glass Curtain Wall</option>
+                        </select>
+                    </div>`;
+            } else if (type === 'Car') {
+                controlsHTML = `
+                    <div class="property-group">
+                        <label>Color</label>
+                        <input type="color" class="edit-prop" data-prop="color" value="${properties.color}">
+                    </div>`;
+            }
+            container.innerHTML = controlsHTML;
+
+            container.querySelectorAll('.edit-prop').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const prop = e.target.dataset.prop;
+                    const value = e.target.type === 'range' ? parseFloat(e.target.value) : e.target.value;
+                    updateSelectedObjectProperty(prop, value);
+                });
+            });
+        }
+        
+        function updateSelectedObjectProperty(prop, value) {
+            if (!selectedObject) return;
+            
+            const oldObject = selectedObject;
+            const index = placedObjects.indexOf(oldObject);
+            const oldUserData = JSON.parse(JSON.stringify(oldObject.userData));
+            
+            oldUserData.properties[prop] = value;
+
+            scene.remove(oldObject);
+            if (index > -1) placedObjects.splice(index, 1);
+
+            const newObject = createObject(oldUserData.type, {
+                position: oldObject.position,
+                properties: oldUserData.properties,
+                shapePoints: oldUserData.shapePoints // Pass shape back for buildings
             });
 
-            const hitboxHeight = isCrouching ? player.height * 0.6 : player.height;
-            player.hitbox.setFromCenterAndSize(
-                new THREE.Vector3(camera.position.x, camera.position.y - NORMAL_HEIGHT + hitboxHeight/2, camera.position.z),
-                new THREE.Vector3(2, hitboxHeight, 2)
-            );
-
-            let collisionDetected = false;
-            if (!isInvincible) {
-                for (let z = -1; z <= 1 && !collisionDetected; z++) {
-                    for (let x = -1; x <= 1 && !collisionDetected; x++) {
-                        const chunk = worldChunks.get(`${camChunkX + x},${camChunkZ + z}`);
-                        if (chunk) {
-                            for(const obstacle of chunk.userData.obstacles){
-                                obstacle.updateWorldMatrix(true, false);
-                                tempHitbox.copy(obstacle.userData.hitbox).applyMatrix4(obstacle.matrixWorld);
-                                if (player.hitbox.intersectsBox(tempHitbox)) {
-                                    if ((obstacle.userData.requiresJump && !isJumping) || (obstacle.userData.requiresCrouch && !isCrouching) || (!obstacle.userData.requiresJump && !obstacle.userData.requiresCrouch)) {
-                                        collisionDetected = true; break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+            if (newObject) {
+               setSelectedObject(newObject);
+            } else {
+               setSelectedObject(null);
             }
-
-            if(collisionDetected) {
-                if (collisionSkipCount > 0) {
-                    collisionSkipCount--;
-                    updatePerkUI();
-                    isInvincible = true;
-                    invincibilityEndTime = currentTime + 0.5;
-                } else {
-                    gameOver();
-                }
-            }
-
-            // FIXED: Restored perk collection logic
-            let perkCollected = false;
-            for (let z = -1; z <= 1 && !perkCollected; z++) {
-                for (let x = -1; x <= 1 && !perkCollected; x++) {
-                    const chunk = worldChunks.get(`${camChunkX + x},${camChunkZ + z}`);
-                    if (chunk) {
-                        for (const perk of [...chunk.userData.perks]) {
-                             perk.updateWorldMatrix(true, false);
-                             tempHitbox.copy(perk.userData.hitbox).applyMatrix4(perk.matrixWorld);
-                             if(player.hitbox.intersectsBox(tempHitbox)){
-                                if(perk.userData.perkType === 'collision') collisionSkipCount = 3;
-                                else { slowTimeActive = true; slowTimeEndTime = clock.getElapsedTime() + 5; }
-                                chunk.remove(perk);
-                                chunk.userData.perks = chunk.userData.perks.filter(p => p !== perk);
-                                perkCollected = true; updatePerkUI(); break;
-                             }
-                        }
-                    }
-                }
-            }
-
-            player.speed += ACCELERATION * delta * speedMultiplier;
-            obstacleDensity = 1.0 + (score / 5000);
-
-            renderer.render(scene, camera);
         }
 
-        animate();
+
+        // --- PATH SETTING LOGIC ---
+        function togglePathSettingMode() {
+            const pathBtn = document.getElementById('set-path-btn');
+            isSettingPath = !isSettingPath;
+            canvas.classList.toggle('path-setting', isSettingPath);
+            pathBtn.classList.toggle('active', isSettingPath);
+
+            if (isSettingPath) {
+                pathObject = selectedObject;
+                pathPoints = [];
+                document.getElementById('info-panel').textContent = 'Click on the ground to add path points. Press the button again to finish.';
+            } else {
+                if (pathObject && pathPoints.length > 0) {
+                    pathObject.userData.path = pathPoints.map(p => ({ x: p.x, y: p.y, z: p.z }));
+                    pathObject.userData.pathIndex = 0;
+                }
+                if (pathLine) scene.remove(pathLine);
+                pathLine = null;
+                pathObject = null;
+                document.getElementById('info-panel').textContent = 'Path set. Select an object or draw a building.';
+            }
+        }
+        
+        function updatePathLine() {
+            if (pathLine) scene.remove(pathLine);
+            if (pathPoints.length < 2) return;
+            const geometry = new THREE.BufferGeometry().setFromPoints(pathPoints);
+            const material = new THREE.LineBasicMaterial({ color: 0xff00ff, linewidth: 2 });
+            pathLine = new THREE.Line(geometry, material);
+            scene.add(pathLine);
+        }
+
+        document.getElementById('set-path-btn').addEventListener('click', togglePathSettingMode);
+
+        // --- PREVIEW & PLAYER CONTROLS ---
+        const player = { speed: 25.0 };
+        const keys = { KeyW: false, KeyS: false, KeyA: false, KeyD: false, KeyQ: false, KeyE: false };
+        function enterPreviewMode() { isPreviewMode = true; setSelectedObject(null); canvas.classList.add('interactive'); document.getElementById('control-panel').classList.add('hidden'); document.getElementById('escape-instructions').style.display = 'block'; orbitControls.enabled = false; canvas.requestPointerLock(); }
+        function exitPreviewMode() { isPreviewMode = false; canvas.classList.remove('interactive'); document.getElementById('control-panel').classList.remove('hidden'); document.getElementById('escape-instructions').style.display = 'none'; orbitControls.enabled = true; document.exitPointerLock(); }
+        document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement !== canvas) exitPreviewMode(); });
+        document.addEventListener('keydown', (e) => { if(e.code in keys) keys[e.code] = true; if(e.code === 'Escape' && (isPreviewMode || isSettingPath)) { if (isPreviewMode) exitPreviewMode(); else togglePathSettingMode(); } });
+        document.addEventListener('keyup', (e) => { if(e.code in keys) keys[e.code] = false; });
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isPreviewMode) return;
+            camera.rotation.y -= e.movementX * 0.002;
+            camera.rotation.x -= e.movementY * 0.002;
+            camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
+        });
+        function updatePlayer(delta) {
+            if (!isPreviewMode) return;
+            const moveSpeed = player.speed * delta;
+            if (keys.KeyW) camera.translateZ(-moveSpeed); if (keys.KeyS) camera.translateZ(moveSpeed);
+            if (keys.KeyA) camera.translateX(-moveSpeed); if (keys.KeyD) camera.translateX(moveSpeed);
+            if (keys.KeyE) camera.position.y += moveSpeed; if (keys.KeyQ) camera.position.y -= moveSpeed;
+        }
+
+        // --- ANIMATION LOOP ---
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            updatePlayer(delta);
+            orbitControls.update();
+            placedObjects.forEach(obj => {
+                if (obj.userData.path && obj.userData.path.length > 0) {
+                     const targetPoint = new THREE.Vector3().fromArray(Object.values(obj.userData.path[obj.userData.pathIndex]));
+                    if (obj.position.distanceTo(targetPoint) < 1) {
+                        obj.userData.pathIndex = (obj.userData.pathIndex + 1) % obj.userData.path.length;
+                    } else {
+                        const direction = targetPoint.clone().sub(obj.position).normalize();
+                        const speed = obj.userData.type === 'Car' ? 15.0 : 2.0;
+                        obj.position.add(direction.multiplyScalar(delta * speed));
+                        const lookTarget = new THREE.Vector3().copy(targetPoint);
+                        if(obj.userData.type === 'Person') lookTarget.y = obj.position.y;
+                        obj.lookAt(lookTarget);
+                    }
+                }
+                 if(selectedObject === obj) selectedObject.getObjectByName("SelectionBox")?.update();
+            });
+            renderer.render(scene, camera);
+        }
+        
+        // --- UI & EVENT LISTENERS ---
+        function updateObjectTypeUI(type) {
+            document.querySelectorAll('.type-button').forEach(btn => btn.classList.toggle('selected', btn.dataset.type === type));
+            currentObjectType = type;
+            const isBuilding = type === 'Building';
+            const isRoad = type === 'Road';
+            const isPlaceable = !isBuilding && !isRoad;
+            
+            document.getElementById('building-controls').style.display = isBuilding ? 'block' : 'none';
+            document.getElementById('person-controls').style.display = type === 'Person' ? 'block' : 'none';
+            document.getElementById('car-controls').style.display = type === 'Car' ? 'block' : 'none';
+            document.getElementById('prop-controls').style.display = type === 'Prop' ? 'block' : 'none';
+
+            canvas.classList.toggle('placing-objects', isPlaceable);
+            if(drawingManager) drawingManager.setDrawingMode(isBuilding ? 'polygon' : (isRoad ? 'polyline' : null));
+            document.getElementById('info-panel').textContent = isBuilding ? 'Use map tools to draw a building footprint.' : (isRoad ? 'Use map tools to draw a road.' : 'Click on the scene to place an object.');
+        }
+        document.querySelectorAll('.type-button').forEach(button => button.addEventListener('click', () => updateObjectTypeUI(button.dataset.type)));
+
+        document.getElementById('time-of-day').addEventListener('input', (e) => {
+            const hour = parseFloat(e.target.value);
+            document.getElementById('time-value').textContent = Math.floor(hour);
+            const angle = (hour - 6) / 18 * Math.PI;
+            directionalLight.position.set(Math.cos(angle) * 800, Math.sin(angle) * 800, 300);
+            if(hour < 7 || hour > 19) { directionalLight.intensity = 0.5; hemisphereLight.intensity = 0.2; } 
+            else { directionalLight.intensity = 1.2; hemisphereLight.intensity = 0.5; }
+        });
+        document.getElementById('time-of-day').dispatchEvent(new Event('input'));
+        
+        document.getElementById('delete-btn').addEventListener('click', () => {
+             if (selectedObject) {
+                const index = placedObjects.indexOf(selectedObject);
+                if (index > -1) placedObjects.splice(index, 1);
+                scene.remove(selectedObject);
+                setSelectedObject(null);
+            }
+        });
+        document.getElementById('preview-btn').addEventListener('click', enterPreviewMode);
+        
+        // --- IMPORT/EXPORT LOGIC ---
+        document.getElementById('export-btn').addEventListener('click', () => {
+            const sceneData = placedObjects.map(obj => {
+                return {
+                    type: obj.userData.type,
+                    properties: obj.userData.properties,
+                    position: obj.position,
+                    rotation: obj.rotation.toVector3(),
+                    path: obj.userData.path || [],
+                    shapePoints: obj.userData.shapePoints || null
+                };
+            });
+            
+            const jsonString = JSON.stringify(sceneData, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'scene.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        document.getElementById('import-scene').addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                while(placedObjects.length > 0) {
+                    scene.remove(placedObjects[0]);
+                    placedObjects.shift();
+                }
+                setSelectedObject(null);
+
+                const sceneData = JSON.parse(e.target.result);
+                sceneData.forEach(data => {
+                    const options = {
+                        position: new THREE.Vector3(data.position.x, data.position.y, data.position.z),
+                        properties: data.properties
+                    };
+                    if (data.shapePoints) {
+                        options.shapePoints = data.shapePoints.map(p => new THREE.Vector2(p.x, p.y));
+                    }
+                    const newObj = createObject(data.type, options);
+                    if (newObj && data.path && data.path.length > 0) {
+                        newObj.userData.path = data.path;
+                        newObj.userData.pathIndex = 0;
+                    }
+                });
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Reset input
+        });
+
+        // --- Mobile UI Toggle ---
+        const uiToggleBtn = document.getElementById('ui-toggle-btn');
+        const controlPanel = document.getElementById('control-panel');
+        uiToggleBtn.addEventListener('click', () => {
+            controlPanel.classList.toggle('hidden');
+            controlPanel.classList.toggle('visible');
+        });
+        function checkMobile() {
+            if (window.innerWidth <= 768) {
+                controlPanel.classList.add('hidden');
+                controlPanel.classList.remove('visible');
+            } else {
+                controlPanel.classList.remove('hidden');
+                controlPanel.classList.remove('visible');
+            }
+        }
 
         window.addEventListener('resize', () => {
-             camera.aspect = window.innerWidth / window.innerHeight;
+            camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            checkMobile();
         });
+
+        // --- START ---
+        checkMobile();
+        animate();
     </script>
-    <script src="audio.js"></script>
 </body>
 </html>
+
